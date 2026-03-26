@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document Orchestrator</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #f5f5f5;
+            color: #333;
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 20px rgba(0,0,0,0.1);
+            padding: 40px;
+            width: 100%;
+            max-width: 1060px;
+            margin: 0 auto;
+        }
+        h1 { font-size: 24px; margin-bottom: 8px; }
+        h2 { font-size: 18px; margin-bottom: 12px; }
+        h3 { font-size: 15px; margin-bottom: 8px; }
+        .subtitle { color: #666; margin-bottom: 24px; font-size: 14px; }
+
+        /* Step indicator */
+        .steps {
+            display: flex;
+            gap: 0;
+            margin-bottom: 32px;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 16px;
+        }
+        .step-item {
+            flex: 1;
+            text-align: center;
+            font-size: 13px;
+            font-weight: 600;
+            color: #aaa;
+            position: relative;
+            padding-bottom: 8px;
+        }
+        .step-item.active { color: #4a90d9; }
+        .step-item.active::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: #4a90d9;
+        }
+        .step-item.done { color: #28a745; }
+
+        /* Forms */
+        label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 14px; }
+        input[type="file"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px dashed #ddd;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            cursor: pointer;
+        }
+        input[type="file"]:hover { border-color: #999; }
+        textarea, input[type="text"] {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-family: inherit;
+            font-size: 14px;
+        }
+        textarea { resize: vertical; min-height: 80px; margin-bottom: 16px; }
+        textarea:focus, input[type="text"]:focus { outline: none; border-color: #4a90d9; }
+
+        .btn {
+            background: #4a90d9;
+            color: white;
+            border: none;
+            padding: 12px 32px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            width: 100%;
+        }
+        .btn:hover { background: #357abd; }
+        .btn:disabled { background: #ccc; cursor: not-allowed; }
+        .btn-green { background: #28a745; }
+        .btn-green:hover { background: #218838; }
+        .btn-amber { background: #e0a800; }
+        .btn-amber:hover { background: #c69500; }
+
+        /* Panels */
+        .panel { display: none; }
+        .panel.active { display: block; }
+
+        /* Status */
+        .status-msg {
+            padding: 14px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            font-size: 14px;
+        }
+        .status-msg.loading { background: #fff3cd; border: 1px solid #ffc107; }
+        .status-msg.error { background: #f8d7da; border: 1px solid #dc3545; color: #721c24; }
+        .status-msg.info { background: #d1ecf1; border: 1px solid #bee5eb; color: #0c5460; }
+
+        /* Verification */
+        .verification { margin-top: 20px; padding: 16px; border-radius: 8px; font-size: 14px; }
+        .verification.pass { background: #d4edda; border: 1px solid #28a745; }
+        .verification.fail { background: #f8d7da; border: 1px solid #dc3545; }
+        .verification .score { font-size: 24px; font-weight: 700; margin-bottom: 12px; }
+        .checks-table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 13px; }
+        .checks-table th, .checks-table td { padding: 6px 10px; border: 1px solid #ddd; text-align: left; }
+        .checks-table th { background: #f8f8f8; font-weight: 600; }
+        .check-pass { color: #28a745; }
+        .check-fail { color: #dc3545; font-weight: 600; }
+
+        .questions-box {
+            margin-top: 16px;
+            padding: 14px;
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 8px;
+        }
+        .questions-box h4 { margin-bottom: 12px; color: #856404; }
+        .qa-item { margin-bottom: 14px; }
+        .qa-item .q-text { font-weight: 600; color: #664d03; margin-bottom: 4px; }
+        .qa-item textarea {
+            width: 100%; padding: 6px 10px; border: 1px solid #c9a800;
+            border-radius: 6px; font-size: 13px; min-height: 40px; margin-bottom: 0;
+        }
+
+        .download-link {
+            display: inline-block; margin-top: 12px; background: #28a745; color: white;
+            padding: 10px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;
+        }
+        .download-link:hover { background: #218838; }
+        .summary { white-space: pre-wrap; margin-bottom: 12px; font-size: 14px; }
+
+        .start-over {
+            margin-top: 16px; font-size: 14px; color: #4a90d9;
+            cursor: pointer; text-decoration: underline; background: none; border: none;
+            width: auto; padding: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Document Orchestrator</h1>
+        <p class="subtitle">Upload a Word template and an Excel data source. The AI will extract data and fill your template automatically.</p>
+
+        <div class="steps">
+            <div class="step-item active" id="step-ind-1">1. Upload</div>
+            <div class="step-item" id="step-ind-2">2. Fill &amp; Verify</div>
+            <div class="step-item" id="step-ind-3">3. Download</div>
+        </div>
+
+        <!-- Step 1: Upload -->
+        <div class="panel active" id="panel-upload">
+            <h2>Upload Files</h2>
+            <form id="uploadForm">
+                <label for="template">Word template (.docx)</label>
+                <input type="file" id="template" accept=".docx" required>
+
+                <label for="dataSource">Excel data source (.xlsx)</label>
+                <input type="file" id="dataSource" accept=".xlsx" required>
+
+                <label for="instruction">Instruction</label>
+                <textarea id="instruction" placeholder="e.g. Fill the template using the data from the Excel file..." required></textarea>
+
+                <button type="submit" class="btn" id="startBtn">Upload &amp; Fill</button>
+            </form>
+            <div id="uploadStatus"></div>
+        </div>
+
+        <!-- Step 2: Fill & Verify -->
+        <div class="panel" id="panel-verify">
+            <h2>Results &amp; Verification</h2>
+            <div id="verifyContent"></div>
+            <div style="margin-top:16px;display:flex;gap:12px;align-items:center">
+                <button class="start-over" onclick="goToStep('upload')" style="margin:0">Start new document</button>
+                <a id="viewLogsLink" href="#" target="_blank" style="font-size:14px;color:#4a90d9;text-decoration:underline;cursor:pointer">View detailed logs</a>
+            </div>
+        </div>
+    </div>
+
+<script>
+    // ── State ──────────────────────────────────────────────────────
+    let currentSessionId = null;
+    let currentWordSessionId = null;
+    let fillPollTimer = null;
+
+    // ── Step navigation ────────────────────────────────────────────
+    function goToStep(name) {
+        document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.step-item').forEach(s => { s.classList.remove('active'); s.classList.remove('done'); });
+
+        const steps = ['upload', 'verify', 'download'];
+        const idx = steps.indexOf(name);
+
+        for (let i = 0; i < idx; i++) {
+            document.getElementById(`step-ind-${i+1}`).classList.add('done');
+        }
+        document.getElementById(`step-ind-${idx+1}`).classList.add('active');
+        document.getElementById(`panel-${name}`).classList.add('active');
+
+        if (name === 'upload') {
+            document.getElementById('startBtn').disabled = false;
+            hideStatus('uploadStatus');
+            if (fillPollTimer) { clearInterval(fillPollTimer); fillPollTimer = null; }
+        }
+    }
+
+    function showStatus(elementId, msg, type) {
+        const el = document.getElementById(elementId);
+        el.className = `status-msg ${type}`;
+        el.textContent = msg;
+        el.style.display = 'block';
+    }
+    function hideStatus(elementId) {
+        document.getElementById(elementId).style.display = 'none';
+    }
+
+    // ── Step 1: Upload → immediately start filling ──────────────────
+    document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const tmpl = document.getElementById('template').files[0];
+        const data = document.getElementById('dataSource').files[0];
+        const instr = document.getElementById('instruction').value.trim();
+        if (!tmpl || !data || !instr) return;
+
+        document.getElementById('startBtn').disabled = true;
+        showStatus('uploadStatus', 'Uploading files and extracting data...', 'loading');
+
+        const fd = new FormData();
+        fd.append('template', tmpl);
+        fd.append('data_source', data);
+        fd.append('instruction', instr);
+
+        try {
+            const res = await fetch('/api/start', { method: 'POST', body: fd });
+            if (!res.ok) { const err = await res.json(); throw new Error(err.detail || 'Start failed'); }
+            const result = await res.json();
+
+            currentSessionId = result.session_id;
+            document.getElementById('viewLogsLink').href = `/api/logs/${result.session_id}`;
+
+            // Go straight to verify panel with progress indicator
+            goToStep('verify');
+            document.getElementById('verifyContent').innerHTML = `
+                <div class="status-msg loading" id="fillProgress">
+                    <strong>Filling document...</strong><br>
+                    <span id="fillTimer">The AI agent is reading your template and filling in data from the Excel file. This typically takes 1-3 minutes.</span>
+                    <div style="margin-top:12px;height:4px;background:#e0e0e0;border-radius:2px;overflow:hidden">
+                        <div id="fillProgressBar" style="height:100%;background:#4a90d9;width:0%;transition:width 1s ease"></div>
+                    </div>
+                </div>
+            `;
+            startFillPolling();
+        } catch (err) {
+            showStatus('uploadStatus', 'Error: ' + err.message, 'error');
+            document.getElementById('startBtn').disabled = false;
+        }
+    });
+
+    function startFillPolling() {
+        let pollCount = 0;
+        fillPollTimer = setInterval(async () => {
+            pollCount++;
+            try {
+                const res = await fetch(`/api/fill-status/${currentSessionId}`);
+                if (!res.ok) {
+                    const err = await res.json();
+                    clearInterval(fillPollTimer);
+                    document.getElementById('verifyContent').innerHTML =
+                        `<div class="status-msg error">Error: ${err.detail || 'Fill failed'}</div>
+                         <button class="start-over" onclick="goToStep('upload')">Back to upload</button>`;
+                    return;
+                }
+                const data = await res.json();
+
+                if (data.status === 'filling') {
+                    const elapsed = data.elapsed_seconds || (pollCount * 3);
+                    const pct = Math.min(95, (elapsed / 180) * 100);
+                    const bar = document.getElementById('fillProgressBar');
+                    const timer = document.getElementById('fillTimer');
+                    if (bar) bar.style.width = pct + '%';
+                    if (timer) timer.textContent = `Working... ${Math.round(elapsed)}s elapsed. The AI agent is reading your template and filling in data.`;
+                } else if (data.status === 'done') {
+                    clearInterval(fillPollTimer);
+                    currentWordSessionId = data.word_session_id;
+                    renderVerification(data);
+                }
+            } catch (err) {
+                // Network error — keep polling
+            }
+        }, 3000);
+    }
+
+    // ── Render verification ────────────────────────────────────────
+    function renderVerification(data) {
+        const container = document.getElementById('verifyContent');
+        let html = `<div class="summary">${data.summary || ''}</div>`;
+
+        if (data.has_modified_file) {
+            html += `<a class="download-link" href="/api/download/${currentSessionId}">Download Filled Document</a>`;
+        }
+
+        if (data.verification) {
+            const v = data.verification;
+            const cls = v.pass ? 'pass' : 'fail';
+            const icon = v.pass ? '&#10004;' : '&#10008;';
+            html += `<div class="verification ${cls}">`;
+            html += `<h3>Verification ${icon}</h3>`;
+            html += `<div class="score">Score: ${v.score}/100</div>`;
+            html += `<p>${v.summary || ''}</p>`;
+
+            if (v.checks && v.checks.length > 0) {
+                html += '<table class="checks-table"><tr><th>Field</th><th>Expected</th><th>Actual</th><th>Match</th></tr>';
+                for (const c of v.checks) {
+                    const mi = c.match ? '<span class="check-pass">&#10004;</span>' : '<span class="check-fail">&#10008;</span>';
+                    html += `<tr><td>${c.field}</td><td>${c.expected}</td><td>${c.actual}</td><td>${mi}</td></tr>`;
+                }
+                html += '</table>';
+            }
+
+            if (v.issues && v.issues.length > 0) {
+                html += '<ul style="margin-top:12px;padding-left:20px;color:#dc3545">';
+                for (const issue of v.issues) { html += `<li>${issue}</li>`; }
+                html += '</ul>';
+            }
+
+            if (v.questions && v.questions.length > 0) {
+                html += '<div class="questions-box"><h4>Please answer the following questions and resubmit:</h4>';
+                for (let i = 0; i < v.questions.length; i++) {
+                    html += `<div class="qa-item">`;
+                    html += `<div class="q-text">${i+1}. ${v.questions[i]}</div>`;
+                    html += `<textarea class="qa-answer" data-question="${v.questions[i].replace(/"/g, '&quot;')}" placeholder="Type your answer or 'leave blank'..."></textarea>`;
+                    html += '</div>';
+                }
+                html += `<button class="btn btn-amber" id="reviseBtn" style="margin-top:12px">Resubmit with Answers</button>`;
+                html += '</div>';
+            }
+
+            html += '</div>';
+        }
+
+        container.innerHTML = html;
+
+        const reviseBtn = document.getElementById('reviseBtn');
+        if (reviseBtn) {
+            reviseBtn.addEventListener('click', handleRevise);
+        }
+    }
+
+    // ── Revise ─────────────────────────────────────────────────────
+    async function handleRevise() {
+        const reviseBtn = document.getElementById('reviseBtn');
+        const answerEls = document.querySelectorAll('.qa-answer');
+
+        const qa = [];
+        for (const el of answerEls) {
+            qa.push({ question: el.dataset.question, answer: el.value.trim() });
+        }
+
+        reviseBtn.disabled = true;
+        reviseBtn.textContent = 'Reprocessing...';
+
+        const fd = new FormData();
+        fd.append('session_id', currentSessionId);
+        fd.append('answers', JSON.stringify(qa));
+
+        try {
+            const res = await fetch('/api/revise', { method: 'POST', body: fd });
+            if (!res.ok) { const err = await res.json(); throw new Error(err.detail || 'Revise failed'); }
+            const result = await res.json();
+            renderVerification(result);
+        } catch (err) {
+            const container = document.getElementById('verifyContent');
+            container.innerHTML += `<div class="status-msg error">Error: ${err.message}</div>`;
+        }
+    }
+</script>
+</body>
+</html>
